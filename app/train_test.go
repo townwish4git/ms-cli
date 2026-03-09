@@ -503,8 +503,7 @@ if __name__ == "__main__":
 	}
 
 	cfg := configs.DefaultConfig()
-	cfg.Training.Enabled = true
-	cfg.Training.LocalPath = "."
+		cfg.Training.LocalPath = "."
 	cfg.Training.RemoteCodePath = "/remote/code"
 	cfg.Training.RunBaseDir = "/remote/runs"
 	cfg.Training.HostsFile = ""
@@ -567,8 +566,7 @@ func TestBuildTrainWorkflowSupportsPerHostLocalPathAndTrainScript(t *testing.T) 
 	}
 
 	cfg := configs.DefaultConfig()
-	cfg.Training.Enabled = true
-	cfg.Training.RemoteCodePath = "/remote/code"
+		cfg.Training.RemoteCodePath = "/remote/code"
 	cfg.Training.RunBaseDir = "/remote/runs"
 	cfg.Training.HostsFile = ""
 	cfg.Training.Hosts = []configs.TrainingHostConfig{
@@ -646,8 +644,7 @@ if __name__ == "__main__":
 	}
 
 	cfg := configs.DefaultConfig()
-	cfg.Training.Enabled = true
-	cfg.Training.LocalPath = "."
+		cfg.Training.LocalPath = "."
 	cfg.Training.RemoteCodePath = "/remote/code"
 	cfg.Training.RunBaseDir = "/remote/runs"
 	cfg.Training.HostsFile = ""
@@ -697,8 +694,7 @@ func TestBuildTrainWorkflowUsesHostSpecificStartupCommandOverride(t *testing.T) 
 	}
 
 	cfg := configs.DefaultConfig()
-	cfg.Training.Enabled = true
-	cfg.Training.LocalPath = "."
+		cfg.Training.LocalPath = "."
 	cfg.Training.StartupCommand = "source ~/.bashrc && conda activate global-trainer"
 	cfg.Training.RemoteCodePath = "/remote/code"
 	cfg.Training.RunBaseDir = "/remote/runs"

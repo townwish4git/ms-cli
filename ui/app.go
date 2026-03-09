@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/vigo999/ms-cli/internal/train"
 	"github.com/vigo999/ms-cli/ui/components"
 	"github.com/vigo999/ms-cli/ui/model"
 	"github.com/vigo999/ms-cli/ui/panels"
 	"github.com/vigo999/ms-cli/ui/slash"
+	"github.com/vigo999/ms-cli/ui/wizard"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -28,6 +30,7 @@ type appViewMode int
 const (
 	viewModeChat appViewMode = iota
 	viewModeTrain
+	viewModeWizard
 )
 
 // App is the TUI root model.
@@ -48,6 +51,10 @@ type App struct {
 	userCh         chan<- string // sends user input to the engine bridge
 	lastInterrupt  time.Time     // track last ctrl+c for double-press exit
 	trainSlash     *slash.Registry
+
+	// Wizard mode
+	wizard         wizard.Model
+	wizardActive   bool
 }
 
 // New creates a new App driven by the given event channel.
@@ -190,6 +197,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.viewMode == viewModeTrain {
 		return a.handleTrainKey(msg)
+	}
+
+	if a.viewMode == viewModeWizard {
+		return a.handleWizardKey(msg)
 	}
 
 	// Check if we're in slash suggestion mode
@@ -428,6 +439,13 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithMessage(model.Message{Kind: model.MsgThinking})
 
 	case model.AgentReply:
+		// Check for wizard start message
+		if ev.Message == "__start_train_wizard__" {
+			pm := train.NewProjectManager(a.state.WorkDir)
+			projects, _ := pm.ListProjects()
+			a.StartWizard(projects)
+			return a, a.waitForEvent
+		}
 		// Stop thinking and show result
 		a.state = a.state.WithThinking(false)
 		a.state = a.replaceThinking(model.Message{Kind: model.MsgAgent, Content: ev.Message})
@@ -682,6 +700,10 @@ func (a App) chatLine() string {
 }
 
 func (a App) View() string {
+	if a.viewMode == viewModeWizard {
+		return a.wizard.View()
+	}
+
 	if a.viewMode == viewModeTrain {
 		if a.trainCopyMode && a.trainSnapshot != "" {
 			return a.trainSnapshot
@@ -736,4 +758,43 @@ func (a App) renderTrainChatBody(layout panels.TrainEmbeddedChatLayout) string {
 	}
 	parts = append(parts, a.input.View())
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+// handleWizardKey handles keyboard input in wizard mode
+func (a App) handleWizardKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	a.wizard, cmd = a.wizard.Update(msg)
+
+	// Check if wizard is done
+	if a.wizard.IsDone() {
+		// Get the final project and save it
+		project := a.wizard.GetFinalProject()
+		if project != nil {
+			// Save project
+			pm := train.NewProjectManager(a.state.WorkDir)
+			if project.ID == "" {
+				project.ID = pm.GenerateProjectID()
+				project.Name = project.ID
+			}
+			pm.SaveProject(project)
+
+			// Notify app layer that wizard is complete
+			if a.userCh != nil {
+				go func() {
+					a.userCh <- "/train " + project.ID
+				}()
+			}
+		}
+		a.viewMode = viewModeChat
+		a.wizardActive = false
+	}
+
+	return a, cmd
+}
+
+// StartWizard starts the training configuration wizard
+func (a *App) StartWizard(projects []train.TrainProject) {
+	a.wizard = wizard.New(projects)
+	a.viewMode = viewModeWizard
+	a.wizardActive = true
 }

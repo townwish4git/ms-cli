@@ -18,17 +18,3 @@ func TestDefaultConfigSetsTrainSyncTuningDefaults(t *testing.T) {
 		t.Fatalf("expected built-in train excludes")
 	}
 }
-
-func TestConfigValidateRejectsNegativeTrainSyncParallelism(t *testing.T) {
-	cfg := DefaultConfig()
-	cfg.Training.Enabled = true
-	cfg.Training.SyncParallelism = -1
-	cfg.Training.HostsFile = ""
-	cfg.Training.Hosts = []TrainingHostConfig{
-		{Name: "gpuA", User: "user", Address: "gpu-a.example.com"},
-	}
-
-	if err := cfg.Validate(); err == nil {
-		t.Fatalf("expected validate to reject negative sync_parallelism")
-	}
-}

@@ -1,0 +1,36 @@
+version: 2
+id: project-default
+name: 默认配置
+mode: 0
+created_at: 2026-03-09T00:00:00Z
+updated_at: 2026-03-09T21:07:00.888266+08:00
+rsync_compress: false
+rsync_respect_gitignore: true
+sync_parallelism: 0
+exclude:
+    - .git
+    - .cache
+    - __pycache__
+    - mscli-demo.mp4
+npu_config:
+    host_address: 8.92.7.129
+    user: root
+    ssh_port: 22
+    env_vars: []
+    local_path: ./examples/train_qwen3_npu.py
+    remote_code_path: ~/workspace/ms-cli-demo
+    run_base_dir: ~/workspace/ms-cli-demo
+    train_script: train_qwen3_npu.py
+    train_args: ""
+    startup_command: source /usr/local/Ascend/ascend-toolkit/set_env.sh && source /home/miniconda3/bin/activate zjy_torch_npu && export HF_ENDPOINT=https://hf-mirror.com && export HUGGINGFACE_HUB_CACHE=/home/.cache/huggingface/hub/
+gpu_config:
+    host_address: 8.92.7.133
+    user: root
+    ssh_port: 22
+    env_vars: []
+    local_path: ./examples/train_qwen3_gpu.py
+    remote_code_path: ~/workspace/ms-cli-demo
+    run_base_dir: ~/workspace/ms-cli-demo
+    train_script: train_qwen3_gpu.py
+    train_args: ""
+    startup_command: source /workspace/miniconda3/bin/activate qwen3 && export CUDA_VISIBLE_DEVICES=6 && export HF_ENDPOINT=https://hf-mirror.com

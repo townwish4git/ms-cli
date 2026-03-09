@@ -189,8 +189,8 @@ func (r *Registry) registerDefaults() {
 
 	r.Register(Command{
 		Name:        "/train",
-		Description: "Start distributed training dashboard",
-		Usage:       "/train [run_id|retry|stop|task...]",
+		Description: "Start training configuration wizard or run training",
+		Usage:       "/train [run_id|retry|stop|wizard|task...]",
 	})
 
 	r.Register(Command{

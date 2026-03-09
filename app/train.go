@@ -16,6 +16,7 @@ import (
 	"unicode"
 
 	"github.com/vigo999/ms-cli/configs"
+	"github.com/vigo999/ms-cli/internal/train"
 	"github.com/vigo999/ms-cli/ui/model"
 )
 
@@ -158,14 +159,30 @@ func (a *Application) cmdTrain(args []string) {
 			a.EventCh <- model.Event{
 				Type: model.AgentReply,
 				Message: `Usage:
-  /train                  Start workflow with timestamp run_id
+  /train                  Start training configuration wizard
   /train <run_id>         Start workflow with explicit run_id
   /train tuning qwen3 with the current code
   /train retry            Retry last run_id after failure
   /train stop             Stop current workflow and log streams`,
 			}
 			return
+		case "wizard", "config":
+			// Send event to start wizard
+			a.EventCh <- model.Event{
+				Type:    model.AgentReply,
+				Message: "启动训练配置向导...",
+			}
+			return
 		}
+	}
+
+	// If no args provided, send event to start wizard
+	if len(args) == 0 {
+		a.EventCh <- model.Event{
+			Type:    model.AgentReply,
+			Message: "__start_train_wizard__",
+		}
+		return
 	}
 
 	workflow, err := a.buildTrainWorkflow(args)
@@ -931,12 +948,53 @@ func runShellCommand(ctx context.Context, command string) (string, error) {
 }
 
 func (a *Application) buildTrainWorkflow(args []string) (trainWorkflow, error) {
-	cfg := a.Config.Training
-	if !cfg.Enabled {
-		return trainWorkflow{}, fmt.Errorf("training.enabled=false (set training.enabled=true in config)")
+	// Try to load project configuration
+	pm := train.NewProjectManager(a.WorkDir)
+	var project *train.TrainProject
+
+	// Check if first argument is a project ID
+	if len(args) > 0 {
+		potentialProjectID := args[0]
+		if pm.ProjectExists(potentialProjectID) {
+			loaded, err := pm.LoadProject(potentialProjectID)
+			if err == nil {
+				project = loaded
+				// Remove project ID from args for downstream processing
+				args = args[1:]
+			}
+		}
 	}
+
+	// If no project found from args, try to load default project
+	if project == nil {
+		projects, err := pm.ListProjects()
+		if err == nil && len(projects) > 0 {
+			project = &projects[0]
+		}
+	}
+
+	// Use project config if available, otherwise fall back to legacy config
+	var cfg configs.TrainingConfig
+	if project != nil {
+		cfg = configs.TrainingConfig{
+			Enabled:               true,
+			LocalPath:             ".",
+			RemoteCodePath:        project.NPUConfig.RemoteCodePath,
+			RunBaseDir:            project.NPUConfig.RunBaseDir,
+			TrainCommand:          "python -u {{SCRIPT}}",
+			Exclude:               project.Exclude,
+			SSHControlPersist:     "30m",
+			RsyncCompress:         project.RsyncCompress,
+			RsyncRespectGitIgnore: project.RsyncRespectGitIgnore,
+			SyncParallelism:       project.SyncParallelism,
+			Hosts:                 project.ToTrainingHosts(),
+		}
+	} else {
+		cfg = a.Config.Training
+	}
+
 	if len(cfg.Hosts) == 0 {
-		return trainWorkflow{}, fmt.Errorf("training.hosts is empty in config (check training.hosts_file)")
+		return trainWorkflow{}, fmt.Errorf("no training configuration found. Please create a project in .train/projects/")
 	}
 
 	req := parseTrainRequest(args)

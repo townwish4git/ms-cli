@@ -245,26 +245,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("max_tokens must be greater than reserve_tokens")
 	}
 
-	if c.Training.Enabled {
-		if len(c.Training.Hosts) == 0 {
-			return fmt.Errorf("training.hosts or training.hosts_file is required when training.enabled=true")
-		}
-		if c.Training.SyncParallelism < 0 {
-			return fmt.Errorf("training.sync_parallelism must be >= 0")
-		}
-		for i, host := range c.Training.Hosts {
-			if host.Name == "" {
-				return fmt.Errorf("training.hosts[%d].name is required", i)
-			}
-			if host.Address == "" {
-				return fmt.Errorf("training.hosts[%d].address is required", i)
-			}
-			if host.User == "" {
-				return fmt.Errorf("training.hosts[%d].user is required", i)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -312,9 +292,6 @@ func (c *Config) Merge(other *Config) {
 		c.Context.MaxHistoryRounds = other.Context.MaxHistoryRounds
 	}
 
-	if other.Training.Enabled {
-		c.Training.Enabled = true
-	}
 	if other.Training.LocalPath != "" {
 		c.Training.LocalPath = other.Training.LocalPath
 	}
