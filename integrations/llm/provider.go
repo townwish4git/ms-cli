@@ -4,6 +4,12 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
+)
+
+// Common errors for LLM providers.
+var (
+	ErrAPIKeyNotConfigured = errors.New("API key not configured: please set MSCLI_API_KEY or OPENAI_API_KEY environment variable, or add key to your config file")
 )
 
 // Provider is the unified interface for LLM services.

@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vigo999/ms-cli/agent/loop"
+	"github.com/vigo999/ms-cli/integrations/llm"
 	"github.com/vigo999/ms-cli/ui"
 	"github.com/vigo999/ms-cli/ui/model"
 )
@@ -32,6 +34,14 @@ func (a *Application) runReal() error {
 	// Mouse wheel scrolling is enabled by default.
 	// Use /mouse off to disable if needed.
 	p := tea.NewProgram(tui, tea.WithAltScreen(), tea.WithMouseCellMotion())
+
+	// If API key is not configured, send a warning message before starting
+	if !a.hasAPIKey {
+		a.EventCh <- model.Event{
+			Type:    model.AgentReply,
+			Message: "⚠️  Warning: API key not configured. Please set MSCLI_API_KEY or OPENAI_API_KEY environment variable, or add key to your config file. You can still browse the UI, but sending messages will fail.",
+		}
+	}
 
 	go a.inputLoop(userCh)
 
@@ -85,7 +95,10 @@ func (a *Application) runTask(description string) {
 	if err != nil {
 		// Provide user-friendly error message
 		errMsg := err.Error()
-		if strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "deadline") {
+		// Handle API key not configured error
+		if errors.Is(err, llm.ErrAPIKeyNotConfigured) || strings.Contains(errMsg, "API key not configured") {
+			errMsg = "❌ Failed to send message: API key not configured.\n\nPlease set one of the following:\n  • MSCLI_API_KEY environment variable\n  • OPENAI_API_KEY environment variable\n  • key field in your config file"
+		} else if strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "deadline") {
 			errMsg = fmt.Sprintf("%s\n\nTip: The request timed out. This can happen with long conversations. Try:\n  1. Run /compact to reduce context size\n  2. Start a new conversation with /clear\n  3. Increase timeout in config (model.timeout_sec)", errMsg)
 		}
 		a.EventCh <- model.Event{

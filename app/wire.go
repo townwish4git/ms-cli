@@ -30,6 +30,7 @@ type Application struct {
 	permService  permission.PermissionService
 	stateManager *configs.StateManager
 	traceWriter  trace.Writer
+	hasAPIKey    bool // tracks whether API key was configured at startup
 
 	trainMu       sync.Mutex
 	trainRunID    string

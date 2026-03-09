@@ -126,6 +126,11 @@ func Bootstrap(cfg BootstrapConfig) (*Application, error) {
 	permService := permission.NewDefaultPermissionService(config.Permissions)
 	engine.SetPermissionService(permService)
 
+	// Check if API key is configured
+	hasAPIKey := strings.TrimSpace(config.Model.Key) != "" ||
+		strings.TrimSpace(os.Getenv("MSCLI_API_KEY")) != "" ||
+		strings.TrimSpace(os.Getenv("OPENAI_API_KEY")) != ""
+
 	return &Application{
 		Engine:       engine,
 		EventCh:      make(chan model.Event, 64),
@@ -138,6 +143,7 @@ func Bootstrap(cfg BootstrapConfig) (*Application, error) {
 		permService:  permService,
 		stateManager: stateManager,
 		traceWriter:  traceWriter,
+		hasAPIKey:    hasAPIKey,
 	}, nil
 }
 
@@ -150,9 +156,7 @@ func initProvider(cfg configs.ModelConfig) (llm.Provider, error) {
 	if key == "" {
 		key = strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
 	}
-	if key == "" {
-		return nil, fmt.Errorf("API key not found (set MSCLI_API_KEY/OPENAI_API_KEY or key in config)")
-	}
+	// Allow empty API key - check will be performed at call time
 
 	url := strings.TrimSpace(cfg.URL)
 	if url == "" {

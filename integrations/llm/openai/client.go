@@ -40,9 +40,7 @@ type Client struct {
 // NewClient creates a new OpenAI client.
 func NewClient(cfg Config) (*Client, error) {
 	apiKey := strings.TrimSpace(cfg.Key)
-	if apiKey == "" {
-		return nil, fmt.Errorf("key is required")
-	}
+	// Allow empty API key - check will be performed at call time
 
 	endpoint := cfg.URL
 	if endpoint == "" {
@@ -79,6 +77,11 @@ func (c *Client) SupportsTools() bool {
 
 // Complete performs a non-streaming completion request.
 func (c *Client) Complete(ctx context.Context, req *llm.CompletionRequest) (*llm.CompletionResponse, error) {
+	// Check API key at call time
+	if c.apiKey == "" {
+		return nil, llm.ErrAPIKeyNotConfigured
+	}
+
 	body, err := c.buildRequestBody(req, false)
 	if err != nil {
 		return nil, fmt.Errorf("build request body: %w", err)
@@ -110,6 +113,11 @@ func (c *Client) Complete(ctx context.Context, req *llm.CompletionRequest) (*llm
 
 // CompleteStream performs a streaming completion request.
 func (c *Client) CompleteStream(ctx context.Context, req *llm.CompletionRequest) (llm.StreamIterator, error) {
+	// Check API key at call time
+	if c.apiKey == "" {
+		return nil, llm.ErrAPIKeyNotConfigured
+	}
+
 	body, err := c.buildRequestBody(req, true)
 	if err != nil {
 		return nil, fmt.Errorf("build request body: %w", err)
