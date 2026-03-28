@@ -46,6 +46,51 @@ func TestTruncateToolContentForTool_WriteUses3To5LinePreview(t *testing.T) {
 	}
 }
 
+func TestTruncateToolContentForTool_ShellUsesTailPreview(t *testing.T) {
+	content := strings.Join([]string{
+		"line-1",
+		"line-2",
+		"line-3",
+		"line-4",
+		"line-5",
+		"line-6",
+		"line-7",
+	}, "\n")
+
+	got := truncateToolContentForTool("Shell", content)
+
+	if strings.Contains(got, "line-1") {
+		t.Fatalf("expected oldest line hidden in tail preview, got:\n%s", got)
+	}
+	if !strings.Contains(got, "line-7") {
+		t.Fatalf("expected latest line visible in tail preview, got:\n%s", got)
+	}
+	if !strings.Contains(got, "earlier lines (ctrl+o to expand)") {
+		t.Fatalf("expected earlier lines hint, got:\n%s", got)
+	}
+}
+
+func TestTruncateToolContentForTool_WriteStillUsesHeadPreview(t *testing.T) {
+	content := strings.Join([]string{
+		"a1",
+		"a2",
+		"a3",
+		"a4",
+		"a5",
+		"a6",
+		"a7",
+	}, "\n")
+
+	got := truncateToolContentForTool("Write", content)
+
+	if !strings.Contains(got, "a1") {
+		t.Fatalf("expected head line visible for write preview, got:\n%s", got)
+	}
+	if strings.Contains(got, "a7") {
+		t.Fatalf("expected tail hidden for write preview, got:\n%s", got)
+	}
+}
+
 func TestReadToolFinalization_HidesContent(t *testing.T) {
 	pending := model.Message{
 		Kind:     model.MsgTool,

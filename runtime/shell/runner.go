@@ -32,6 +32,19 @@ type Result struct {
 	Error    error
 }
 
+// ShellLine represents one streamed output line.
+type ShellLine struct {
+	Text   string
+	Source string // stdout | stderr
+	At     time.Time
+}
+
+// RunOptions controls optional progressive output streaming.
+type RunOptions struct {
+	StreamOutput bool
+	OnLine       func(ShellLine)
+}
+
 // Runner executes shell commands within a configured workspace.
 type Runner struct {
 	config Config
@@ -52,6 +65,11 @@ func NewRunner(cfg Config) *Runner {
 
 // Run executes a command and returns the result.
 func (r *Runner) Run(ctx context.Context, command string) (*Result, error) {
+	return r.RunWithOptions(ctx, command, RunOptions{})
+}
+
+// RunWithOptions executes a command and optionally streams output lines.
+func (r *Runner) RunWithOptions(ctx context.Context, command string, opts RunOptions) (*Result, error) {
 	if reason := r.checkAllowed(command); reason != "" {
 		return &Result{
 			ExitCode: -1,
@@ -97,13 +115,13 @@ func (r *Runner) Run(ctx context.Context, command string) (*Result, error) {
 
 	stdoutDone := make(chan struct{})
 	go func() {
-		stdoutOut, stdoutErr = readCapped(stdout, maxOutputBytes)
+		stdoutOut, stdoutErr = readCapped(stdout, maxOutputBytes, "stdout", opts)
 		close(stdoutDone)
 	}()
 
 	stderrDone := make(chan struct{})
 	go func() {
-		stderrOut, stderrErr = readCapped(stderr, maxOutputBytes)
+		stderrOut, stderrErr = readCapped(stderr, maxOutputBytes, "stderr", opts)
 		close(stderrDone)
 	}()
 
@@ -141,7 +159,7 @@ func (r *Runner) Run(ctx context.Context, command string) (*Result, error) {
 	return result, nil
 }
 
-func readCapped(r io.Reader, maxBytes int) (string, error) {
+func readCapped(r io.Reader, maxBytes int, source string, opts RunOptions) (string, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 64*1024), maxScannerTokenSize)
 
@@ -149,6 +167,13 @@ func readCapped(r io.Reader, maxBytes int) (string, error) {
 	truncated := false
 	for scanner.Scan() {
 		line := scanner.Text()
+		if opts.StreamOutput && opts.OnLine != nil {
+			opts.OnLine(ShellLine{
+				Text:   line,
+				Source: source,
+				At:     time.Now(),
+			})
+		}
 		extra := len(line)
 		if b.Len() > 0 {
 			extra++

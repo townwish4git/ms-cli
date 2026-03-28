@@ -25,8 +25,8 @@ const (
 	defaultToolMaxRunes             = 12000
 	writeEditPreviewHeadLines       = 5
 	writeEditPreviewTailLines       = 0
-	shellPreviewHeadLines           = 5
-	shellPreviewTailLines           = 0
+	shellPreviewHeadLines           = 0
+	shellPreviewTailLines           = 5
 	errorPreviewHeadLines           = 5
 	errorPreviewTailLines           = 0
 	defaultPreviewHeadLines         = 5
@@ -846,6 +846,7 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 			Kind:     model.MsgTool,
 			ToolName: "Shell",
 			ToolArgs: ev.Message,
+			Meta:     ev.Meta,
 			Display:  model.DisplayExpanded,
 			Content:  ev.Message,
 		})
@@ -862,7 +863,7 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithStats(stats)
 		a.state = a.resolveToolEvent(ev, model.Message{
 			Kind: model.MsgTool, ToolName: "Read", ToolArgs: ev.Message,
-			Display: model.DisplayCollapsed, Content: ev.Message, Summary: ev.Summary,
+			Meta: ev.Meta, Display: model.DisplayCollapsed, Content: ev.Message, Summary: ev.Summary,
 		})
 
 	case model.ToolGrep:
@@ -871,7 +872,7 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithStats(stats)
 		a.state = a.resolveToolEvent(ev, model.Message{
 			Kind: model.MsgTool, ToolName: "Grep", ToolArgs: ev.Message,
-			Display: model.DisplayCollapsed, Content: ev.Message, Summary: ev.Summary,
+			Meta: ev.Meta, Display: model.DisplayCollapsed, Content: ev.Message, Summary: ev.Summary,
 		})
 
 	case model.ToolGlob:
@@ -880,7 +881,7 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithStats(stats)
 		a.state = a.resolveToolEvent(ev, model.Message{
 			Kind: model.MsgTool, ToolName: "Glob", ToolArgs: ev.Message,
-			Display: model.DisplayCollapsed, Content: ev.Message, Summary: ev.Summary,
+			Meta: ev.Meta, Display: model.DisplayCollapsed, Content: ev.Message, Summary: ev.Summary,
 		})
 
 	case model.ToolEdit:
@@ -889,7 +890,7 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithStats(stats)
 		a.state = a.resolveToolEvent(ev, model.Message{
 			Kind: model.MsgTool, ToolName: "Edit", ToolArgs: ev.Message,
-			Display: model.DisplayExpanded, Content: ev.Message,
+			Meta: ev.Meta, Display: model.DisplayExpanded, Content: ev.Message,
 		})
 
 	case model.ToolWrite:
@@ -898,13 +899,14 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithStats(stats)
 		a.state = a.resolveToolEvent(ev, model.Message{
 			Kind: model.MsgTool, ToolName: "Write", ToolArgs: ev.Message,
-			Display: model.DisplayExpanded, Content: ev.Message,
+			Meta: ev.Meta, Display: model.DisplayExpanded, Content: ev.Message,
 		})
 
 	case model.ToolSkill:
 		msg := model.Message{
 			Kind:     model.MsgTool,
 			ToolName: displayToolName(ev.ToolName),
+			Meta:     ev.Meta,
 			Display:  model.DisplayCollapsed,
 			Content:  ev.Message,
 			Summary:  ev.Summary,
@@ -922,7 +924,7 @@ func (a App) handleEvent(ev model.Event) (tea.Model, tea.Cmd) {
 		a.state = a.state.WithStats(stats)
 		a.state = a.resolveToolEvent(ev, model.Message{
 			Kind: model.MsgTool, ToolName: displayToolName(ev.ToolName), ToolArgs: ev.Message,
-			Display: model.DisplayError, Content: ev.Message,
+			Meta: ev.Meta, Display: model.DisplayError, Content: ev.Message,
 		})
 
 	case model.ToolReplay:
@@ -1922,6 +1924,7 @@ func (a App) appendToLastTool(line string) model.State {
 				Kind:     model.MsgTool,
 				ToolName: msgs[i].ToolName,
 				ToolArgs: msgs[i].ToolArgs,
+				Meta:     msgs[i].Meta,
 				Display:  msgs[i].Display,
 				Content:  content,
 				Summary:  msgs[i].Summary,
@@ -1959,6 +1962,7 @@ func (a App) pendingToolMessage(ev model.Event) model.Message {
 		Kind:     model.MsgTool,
 		ToolName: toolName,
 		ToolArgs: content,
+		Meta:     ev.Meta,
 		Display:  display,
 		Content:  content,
 		Summary:  summary,
@@ -1993,6 +1997,7 @@ func finalizeToolMessage(pending model.Message, ev model.Event) model.Message {
 			Kind:     model.MsgTool,
 			ToolName: valueOrString(pending.ToolName, "Shell"),
 			ToolArgs: valueOrString(pending.ToolArgs, ev.Message),
+			Meta:     firstNonNilMap(ev.Meta, pending.Meta),
 			Display:  model.DisplayExpanded,
 			Content:  ev.Message,
 			Summary:  ev.Summary,
@@ -2002,6 +2007,7 @@ func finalizeToolMessage(pending model.Message, ev model.Event) model.Message {
 			Kind:     model.MsgTool,
 			ToolName: pending.ToolName,
 			ToolArgs: valueOrString(pending.ToolArgs, pending.Content),
+			Meta:     firstNonNilMap(ev.Meta, pending.Meta),
 			Display:  model.DisplayExpanded,
 			Content:  ev.Message,
 			Summary:  ev.Summary,
@@ -2011,6 +2017,7 @@ func finalizeToolMessage(pending model.Message, ev model.Event) model.Message {
 			Kind:     model.MsgTool,
 			ToolName: pending.ToolName,
 			ToolArgs: valueOrString(pending.ToolArgs, ev.Message),
+			Meta:     firstNonNilMap(ev.Meta, pending.Meta),
 			Display:  model.DisplayCollapsed,
 			Content:  "",
 			Summary:  firstNonEmpty(ev.Summary, pending.Summary),
@@ -2020,6 +2027,7 @@ func finalizeToolMessage(pending model.Message, ev model.Event) model.Message {
 			Kind:     model.MsgTool,
 			ToolName: pending.ToolName,
 			ToolArgs: valueOrString(pending.ToolArgs, ev.Message),
+			Meta:     firstNonNilMap(ev.Meta, pending.Meta),
 			Display:  model.DisplayCollapsed,
 			Content:  ev.Message,
 			Summary:  firstNonEmpty(ev.Summary, pending.Summary),
@@ -2033,6 +2041,7 @@ func finalizeToolMessage(pending model.Message, ev model.Event) model.Message {
 			Kind:     model.MsgTool,
 			ToolName: toolName,
 			ToolArgs: valueOrString(pending.ToolArgs, pending.Content),
+			Meta:     firstNonNilMap(ev.Meta, pending.Meta),
 			Display:  model.DisplayError,
 			Content:  ev.Message,
 		}
@@ -2078,6 +2087,7 @@ func replayToolMessage(ev model.Event) model.Message {
 	return model.Message{
 		Kind:     model.MsgTool,
 		ToolName: displayToolName(ev.ToolName),
+		Meta:     ev.Meta,
 		Display:  display,
 		Content:  content,
 	}
@@ -2138,7 +2148,11 @@ func truncateToolContentWithPolicy(content string, headLines, tailLines, maxRune
 	if omittedLines < 1 {
 		omittedLines = 1
 	}
-	visible = append(visible, fmt.Sprintf("… +%d lines (ctrl+o to expand)", omittedLines))
+	hint := fmt.Sprintf("… +%d lines (ctrl+o to expand)", omittedLines)
+	if headLines == 0 && tailLines > 0 {
+		hint = fmt.Sprintf("… +%d earlier lines (ctrl+o to expand)", omittedLines)
+	}
+	visible = append(visible, hint)
 	return strings.Join(visible, "\n")
 }
 
@@ -2181,6 +2195,15 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func firstNonNilMap(values ...map[string]any) map[string]any {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
 }
 
 func valueOrString(value, fallback string) string {

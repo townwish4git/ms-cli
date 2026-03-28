@@ -20,6 +20,7 @@ type Event struct {
 	Message    string
 	ToolName   string
 	Summary    string
+	Meta       map[string]any
 	CtxUsed    int
 	CtxMax     int
 	TokensUsed int

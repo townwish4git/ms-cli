@@ -78,3 +78,60 @@ func TestRenderMessages_ToolFailureShowsErrorSummaryAndDetails(t *testing.T) {
 		t.Fatalf("expected failure detail line, got:\n%s", view)
 	}
 }
+
+func TestRenderMessages_EditToolUsesDiffMetaWhenPresent(t *testing.T) {
+	state := model.State{
+		Messages: []model.Message{
+			{
+				Kind:     model.MsgTool,
+				ToolName: "Edit",
+				ToolArgs: "sample.txt",
+				Display:  model.DisplayExpanded,
+				Meta: map[string]any{
+					"edit_diff": map[string]any{
+						"path":   "sample.txt",
+						"header": "@@ -3,5 +3,5 @@",
+						"lines": []string{
+							" line-1",
+							"-line-3",
+							"+line-3-updated",
+							" line-4",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	view := RenderMessages(state, "", 100, true)
+	if !strings.Contains(view, "Edited: sample.txt") {
+		t.Fatalf("expected meta summary rendered, got:\n%s", view)
+	}
+	for _, want := range []string{"@@ -3,5 +3,5 @@", "-line-3", "+line-3-updated"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("expected diff detail %q in view, got:\n%s", want, view)
+		}
+	}
+}
+
+func TestRenderMessages_EditToolFallsBackToContentWithoutMeta(t *testing.T) {
+	state := model.State{
+		Messages: []model.Message{
+			{
+				Kind:     model.MsgTool,
+				ToolName: "Edit",
+				ToolArgs: "sample.txt",
+				Display:  model.DisplayExpanded,
+				Content:  "Edited: sample.txt\n- old\n+ new",
+			},
+		},
+	}
+
+	view := RenderMessages(state, "", 80, true)
+	if !strings.Contains(view, "Edited: sample.txt") {
+		t.Fatalf("expected fallback summary from content, got:\n%s", view)
+	}
+	if !strings.Contains(view, "- old") || !strings.Contains(view, "+ new") {
+		t.Fatalf("expected fallback details from content, got:\n%s", view)
+	}
+}

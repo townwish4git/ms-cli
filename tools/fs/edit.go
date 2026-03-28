@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -95,6 +96,7 @@ func (t *EditTool) Execute(ctx context.Context, params json.RawMessage) (*tools.
 	}
 
 	// Replace
+	oldPos := strings.Index(contentStr, p.OldString)
 	newContent := strings.Replace(contentStr, p.OldString, p.NewString, 1)
 
 	// Write back
@@ -115,5 +117,79 @@ func (t *EditTool) Execute(ctx context.Context, params json.RawMessage) (*tools.
 	result := fmt.Sprintf("Edited: %s\n- %s\n+ %s", p.Path, p.OldString, p.NewString)
 	summary := fmt.Sprintf("%d lines → %d lines", oldLines, newLines)
 
-	return tools.StringResultWithSummary(result, summary), nil
+	out := tools.StringResultWithSummary(result, summary)
+	out.Meta = buildEditDiffMeta(p.Path, contentStr, newContent, p.OldString, p.NewString, oldPos)
+	return out, nil
+}
+
+func buildEditDiffMeta(path, before, after, oldString, newString string, oldPos int) map[string]any {
+	if oldPos < 0 {
+		return nil
+	}
+	const contextLines = 2
+
+	beforeLines := strings.Split(strings.ReplaceAll(before, "\r\n", "\n"), "\n")
+	afterLines := strings.Split(strings.ReplaceAll(after, "\r\n", "\n"), "\n")
+	oldParts := strings.Split(strings.ReplaceAll(oldString, "\r\n", "\n"), "\n")
+	newParts := strings.Split(strings.ReplaceAll(newString, "\r\n", "\n"), "\n")
+
+	if len(oldParts) == 1 && oldParts[0] == "" {
+		oldParts = []string{}
+	}
+	if len(newParts) == 1 && newParts[0] == "" {
+		newParts = []string{}
+	}
+
+	oldStart := strings.Count(before[:oldPos], "\n") + 1
+	oldCount := max(1, len(oldParts))
+	newCount := max(1, len(newParts))
+	newStart := oldStart
+
+	oldCtxStart := max(1, oldStart-contextLines)
+	oldCtxEnd := min(len(beforeLines), oldStart+oldCount-1+contextLines)
+	newCtxStart := max(1, newStart-contextLines)
+	newCtxEnd := min(len(afterLines), newStart+newCount-1+contextLines)
+
+	lines := make([]string, 0, int(math.Abs(float64(newCtxEnd-newCtxStart)))+8)
+	for i := oldCtxStart; i < oldStart; i++ {
+		lines = append(lines, " "+beforeLines[i-1])
+	}
+	for _, line := range oldParts {
+		if line == "" && oldString == "" {
+			continue
+		}
+		lines = append(lines, "-"+line)
+	}
+	for _, line := range newParts {
+		if line == "" && newString == "" {
+			continue
+		}
+		lines = append(lines, "+"+line)
+	}
+	for i := newStart + newCount; i <= newCtxEnd; i++ {
+		lines = append(lines, " "+afterLines[i-1])
+	}
+
+	header := fmt.Sprintf("@@ -%d,%d +%d,%d @@", oldCtxStart, oldCtxEnd-oldCtxStart+1, newCtxStart, newCtxEnd-newCtxStart+1)
+	return map[string]any{
+		"edit_diff": map[string]any{
+			"path":   path,
+			"header": header,
+			"lines":  lines,
+		},
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

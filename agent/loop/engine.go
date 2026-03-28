@@ -406,8 +406,17 @@ func (ex *executor) executeToolCall(ctx context.Context, tc llm.ToolCall) error 
 		return nil
 	}
 
+	streamCtx := tools.WithStreamSink(ctx, func(event tools.StreamEvent) {
+		switch event.Type {
+		case tools.StreamCmdOutput, tools.StreamCmdFinished:
+			ev := NewEvent(string(event.Type), event.Message)
+			ev.ToolName = toolName
+			ex.addEvent(ev)
+		}
+	})
+
 	// Execute
-	result, err := tool.Execute(ctx, tc.Function.Arguments)
+	result, err := tool.Execute(streamCtx, tc.Function.Arguments)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			return ex.addInterruptedToolResult(tc.ID)
@@ -505,6 +514,7 @@ func (ex *executor) addToolEvent(toolName string, result *tools.Result) {
 	ev := NewEvent(eventType, result.Content)
 	ev.ToolName = toolName
 	ev.Summary = result.Summary
+	ev.Meta = result.Meta
 	ex.addEvent(ev)
 }
 

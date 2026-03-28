@@ -191,3 +191,59 @@ func TestConvertLoopEvent_UnknownWithMessageFallsBackToAgentReply(t *testing.T) 
 		t.Fatalf("convertLoopEvent message = %q, want %q", got.Message, ev.Message)
 	}
 }
+
+func TestConvertLoopEvent_MapsCmdOutputAndCmdFinished(t *testing.T) {
+	out := convertLoopEvent(loop.Event{
+		Type:    loop.EventCmdOutput,
+		Message: "loss=0.42",
+	})
+	if out == nil {
+		t.Fatalf("convertLoopEvent(CmdOutput) = nil, want non-nil")
+	}
+	if out.Type != model.CmdOutput {
+		t.Fatalf("convertLoopEvent(CmdOutput) type = %v, want %v", out.Type, model.CmdOutput)
+	}
+	if out.Message != "loss=0.42" {
+		t.Fatalf("convertLoopEvent(CmdOutput) message = %q, want %q", out.Message, "loss=0.42")
+	}
+
+	fin := convertLoopEvent(loop.Event{
+		Type:    loop.EventCmdFinished,
+		Message: "completed",
+	})
+	if fin == nil {
+		t.Fatalf("convertLoopEvent(CmdFinished) = nil, want non-nil")
+	}
+	if fin.Type != model.CmdFinished {
+		t.Fatalf("convertLoopEvent(CmdFinished) type = %v, want %v", fin.Type, model.CmdFinished)
+	}
+	if fin.Message != "completed" {
+		t.Fatalf("convertLoopEvent(CmdFinished) message = %q, want %q", fin.Message, "completed")
+	}
+}
+
+func TestConvertLoopEvent_PropagatesMeta(t *testing.T) {
+	ev := loop.Event{
+		Type:    loop.EventToolEdit,
+		Message: "Edited: a.txt",
+		Meta: map[string]any{
+			"edit_diff": map[string]any{
+				"path": "a.txt",
+			},
+		},
+	}
+	got := convertLoopEvent(ev)
+	if got == nil {
+		t.Fatalf("convertLoopEvent returned nil")
+	}
+	if got.Meta == nil {
+		t.Fatalf("expected meta propagated")
+	}
+	diff, ok := got.Meta["edit_diff"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected edit_diff in meta, got %#v", got.Meta)
+	}
+	if path, _ := diff["path"].(string); path != "a.txt" {
+		t.Fatalf("meta path = %q, want a.txt", path)
+	}
+}

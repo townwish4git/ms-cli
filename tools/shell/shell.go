@@ -32,7 +32,7 @@ func (t *ShellTool) Name() string {
 
 // Description returns the tool description.
 func (t *ShellTool) Description() string {
-	return "Execute a shell command. Use this for running tests, building, git operations, etc. Commands have a timeout and destructive operations may require confirmation."
+	return "Execute a shell command. Use this for running tests, building, git operations, etc. Commands have a timeout and destructive operations may require confirmation. For long-running commands with continuous logs (for example python train.py), set stream_output=true."
 }
 
 // Schema returns the tool parameter schema.
@@ -48,14 +48,19 @@ func (t *ShellTool) Schema() llm.ToolSchema {
 				Type:        "integer",
 				Description: "Timeout in seconds (default: 60, max: 1800)",
 			},
+			"stream_output": {
+				Type:        "boolean",
+				Description: "Stream output lines while command is running (default: false). Use true for long-running commands with continuous logs (for example python train.py).",
+			},
 		},
 		Required: []string{"command"},
 	}
 }
 
 type shellParams struct {
-	Command string `json:"command"`
-	Timeout int    `json:"timeout"`
+	Command      string `json:"command"`
+	Timeout      int    `json:"timeout"`
+	StreamOutput bool   `json:"stream_output"`
 }
 
 // Execute executes the shell tool.
@@ -76,9 +81,30 @@ func (t *ShellTool) Execute(ctx context.Context, params json.RawMessage) (*tools
 		defer cancel()
 	}
 
-	result, err := t.runner.Run(ctx, command)
+	runOpts := rshell.RunOptions{
+		StreamOutput: p.StreamOutput,
+		OnLine: func(line rshell.ShellLine) {
+			msg := line.Text
+			if line.Source == "stderr" {
+				msg = "[stderr] " + msg
+			}
+			tools.EmitStreamEvent(ctx, tools.StreamEvent{
+				Type:    tools.StreamCmdOutput,
+				Message: msg,
+			})
+		},
+	}
+
+	result, err := t.runner.RunWithOptions(ctx, command, runOpts)
 	if err != nil {
 		return tools.ErrorResultf("execute command: %w", err), nil
+	}
+
+	if p.StreamOutput {
+		tools.EmitStreamEvent(ctx, tools.StreamEvent{
+			Type:    tools.StreamCmdFinished,
+			Message: fmt.Sprintf("exit %d", result.ExitCode),
+		})
 	}
 
 	var parts []string

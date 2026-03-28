@@ -43,6 +43,7 @@ type Message struct {
 	Content   string
 	ToolName  string
 	ToolArgs  string
+	Meta      map[string]any
 	Display   DisplayMode
 	Summary   string // shown when collapsed, e.g. "5 matches", "23 files"
 	Pending   bool
@@ -92,6 +93,7 @@ type Event struct {
 	Message     string
 	ToolName    string
 	Summary     string
+	Meta        map[string]any
 	CtxUsed     int
 	CtxMax      int
 	TokensUsed  int

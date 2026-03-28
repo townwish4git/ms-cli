@@ -28,7 +28,44 @@ type Tool interface {
 type Result struct {
 	Content string // Main output content
 	Summary string // Summary for UI display (e.g., "42 lines", "5 matches")
-	Error   error  // Execution error
+	Meta    map[string]any
+	Error   error // Execution error
+}
+
+// StreamEventType identifies progressive tool output events.
+type StreamEventType string
+
+const (
+	StreamCmdOutput   StreamEventType = "CmdOutput"
+	StreamCmdFinished StreamEventType = "CmdFinished"
+)
+
+// StreamEvent is emitted by tools that support progressive output.
+type StreamEvent struct {
+	Type    StreamEventType
+	Message string
+}
+
+// StreamSink receives progressive tool output events.
+type StreamSink func(StreamEvent)
+
+type streamSinkKey struct{}
+
+// WithStreamSink attaches a progressive output sink to context.
+func WithStreamSink(ctx context.Context, sink StreamSink) context.Context {
+	if sink == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, streamSinkKey{}, sink)
+}
+
+// EmitStreamEvent sends a progressive output event through ctx if configured.
+func EmitStreamEvent(ctx context.Context, event StreamEvent) {
+	sink, ok := ctx.Value(streamSinkKey{}).(StreamSink)
+	if !ok || sink == nil {
+		return
+	}
+	sink(event)
 }
 
 // StringResult creates a result with just content.
